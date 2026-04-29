@@ -1,0 +1,10 @@
+services:
+  tracktime-api:
+    build: .
+    container_name: tracktime-api
+    ports:
+      - "80:80"
+    volumes:
+      - ./public:/var/www/html
+      - ./database:/var/www/database
+    restart: unless-stopped
