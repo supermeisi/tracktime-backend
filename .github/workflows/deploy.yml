@@ -39,14 +39,11 @@ jobs:
             cd "${{ secrets.TARGET_DIR }}"
           
             mkdir -p database
-          
-            chown -R 33:33 database
             chmod 775 database
           
             if [ -f database/worktime.sqlite ]; then
-              chown 33:33 database/worktime.sqlite
               chmod 664 database/worktime.sqlite
             fi
           
-            docker-compose down
-            docker-compose up -d --build
+            UID=$(id -u) GID=$(id -g) docker-compose down
+            UID=$(id -u) GID=$(id -g) docker-compose up -d --build
