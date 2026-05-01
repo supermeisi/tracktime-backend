@@ -52,6 +52,21 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $stmt->execute([$id, $userId]);
     }
 
+    if ($action === "add_time") {
+        $workDate = $_POST["work_date"];
+        $punchInTime = $_POST["punch_in_time"];
+        $punchOutTime = $_POST["punch_out_time"];
+
+        $punchIn = $workDate . " " . $punchInTime . ":00";
+        $punchOut = $workDate . " " . $punchOutTime . ":00";
+
+        $stmt = $pdo->prepare("
+            INSERT INTO work_times(user_id, punch_in, punch_out, created_at)
+            VALUES (?, ?, ?, ?)
+        ");
+        $stmt->execute([$userId, $punchIn, $punchOut, date("Y-m-d H:i:s")]);
+    }
+
     if ($action === "update_day_status") {
         $workDate = $_POST["work_date"];
         $status = $_POST["status"];
@@ -82,8 +97,8 @@ $stmt = $pdo->prepare("
         date(punch_in) AS work_date,
         punch_in,
         punch_out,
-        time(punch_in) AS in_time,
-        time(punch_out) AS out_time,
+        strftime('%H:%M', punch_in) AS in_time,
+        strftime('%H:%M', punch_out) AS out_time,
         ROUND((julianday(punch_out) - julianday(punch_in)) * 24, 2) AS worked_hours
     FROM work_times
     WHERE user_id = ?
@@ -193,6 +208,14 @@ $daysInMonth = (int)date("t", strtotime($monthStart));
 
         .punch-link:hover {
             background: #bbdefb;
+        }
+
+        .add-button {
+            margin-top: 6px;
+            background: #388e3c;
+            color: white;
+            border: none;
+            cursor: pointer;
         }
 
         .summary {
@@ -388,8 +411,24 @@ $daysInMonth = (int)date("t", strtotime($monthStart));
                                 <?= htmlspecialchars($session["out_time"]) ?>
                             </span>
                         <?php endforeach; ?>
+
+                        <br>
+
+                        <button
+                            type="button"
+                            class="add-button"
+                            onclick="openAddModal('<?= htmlspecialchars($date) ?>')"
+                        >
+                            Add time pair
+                        </button>
                     <?php else: ?>
-                        -
+                        <button
+                            type="button"
+                            class="add-button"
+                            onclick="openAddModal('<?= htmlspecialchars($date) ?>')"
+                        >
+                            Add time pair
+                        </button>
                     <?php endif; ?>
                 </td>
 
@@ -420,7 +459,7 @@ $daysInMonth = (int)date("t", strtotime($monthStart));
     <div class="modal-content">
         <h3>Edit Punch Time</h3>
 
-        <form method="post" id="editForm">
+        <form method="post">
             <input type="hidden" name="id" id="editId">
             <input type="hidden" name="user_id" value="<?= htmlspecialchars($userId) ?>">
             <input type="hidden" name="month" value="<?= htmlspecialchars($month) ?>">
@@ -458,6 +497,39 @@ $daysInMonth = (int)date("t", strtotime($monthStart));
     </div>
 </div>
 
+<div id="addModal" class="modal">
+    <div class="modal-content">
+        <h3>Add Punch Time</h3>
+
+        <form method="post">
+            <input type="hidden" name="action" value="add_time">
+            <input type="hidden" name="user_id" value="<?= htmlspecialchars($userId) ?>">
+            <input type="hidden" name="month" value="<?= htmlspecialchars($month) ?>">
+            <input type="hidden" name="work_date" id="addWorkDate">
+
+            <div class="modal-row">
+                <label>Punch In</label>
+                <input type="time" name="punch_in_time" required>
+            </div>
+
+            <div class="modal-row">
+                <label>Punch Out</label>
+                <input type="time" name="punch_out_time" required>
+            </div>
+
+            <div class="modal-actions">
+                <button type="submit" class="save-button">
+                    Add
+                </button>
+
+                <button type="button" class="cancel-button" onclick="closeAddModal()">
+                    Cancel
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script>
 function openEditModal(id, punchIn, punchOut) {
     document.getElementById("editId").value = id;
@@ -470,10 +542,25 @@ function closeEditModal() {
     document.getElementById("editModal").style.display = "none";
 }
 
+function openAddModal(workDate) {
+    document.getElementById("addWorkDate").value = workDate;
+    document.getElementById("addModal").style.display = "block";
+}
+
+function closeAddModal() {
+    document.getElementById("addModal").style.display = "none";
+}
+
 window.onclick = function(event) {
-    const modal = document.getElementById("editModal");
-    if (event.target === modal) {
+    const editModal = document.getElementById("editModal");
+    const addModal = document.getElementById("addModal");
+
+    if (event.target === editModal) {
         closeEditModal();
+    }
+
+    if (event.target === addModal) {
+        closeAddModal();
     }
 }
 </script>
