@@ -1,6 +1,7 @@
 services:
   tracktime-api:
     build: .
+    user: "${UID}:${GID}"
     container_name: tracktime-api
     ports:
       - "80:80"
