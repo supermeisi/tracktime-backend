@@ -37,5 +37,15 @@ jobs:
           port: ${{ secrets.PORT }}
           script: |
             cd "${{ secrets.TARGET_DIR }}"
+     
+            mkdir -p database
+      
+            sudo chown -R 33:33 database
+            sudo chmod 775 database
+      
+            if [ -f database/worktime.sqlite ]; then
+              sudo chmod 664 database/worktime.sqlite
+            fi
+            
             docker-compose down
-            docker-compose up -d
+            docker-compose up -d --build
