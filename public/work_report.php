@@ -1,5 +1,6 @@
 <?php
 $dbFile = "/var/www/database/worktime.sqlite";
+
 $pdo = new PDO("sqlite:" . $dbFile);
 $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
@@ -8,18 +9,20 @@ $targetHoursPerDay = 8.0;
 
 $stmt = $pdo->prepare("
     SELECT
-        id,
         user_id,
-        punch_in,
-        punch_out,
         date(punch_in) AS work_date,
-        time(punch_in) AS in_time,
-        time(punch_out) AS out_time,
-        ROUND((julianday(punch_out) - julianday(punch_in)) * 24, 2) AS worked_hours
+        MIN(time(punch_in)) AS first_punch_in,
+        MAX(time(punch_out)) AS last_punch_out,
+        ROUND(SUM((julianday(punch_out) - julianday(punch_in)) * 24), 2) AS worked_hours,
+        GROUP_CONCAT(
+            time(punch_in) || ' - ' || time(punch_out),
+            '<br>'
+        ) AS punch_times
     FROM work_times
     WHERE user_id = ?
     AND punch_out IS NOT NULL
-    ORDER BY punch_in ASC
+    GROUP BY user_id, date(punch_in)
+    ORDER BY work_date ASC
 ");
 
 $stmt->execute([$userId]);
@@ -66,6 +69,7 @@ $totalBalance = 0;
             border: 1px solid #333;
             padding: 8px;
             text-align: center;
+            vertical-align: middle;
         }
 
         th {
@@ -112,8 +116,9 @@ $totalBalance = 0;
     <thead>
         <tr>
             <th>Date</th>
-            <th>Punch In</th>
-            <th>Punch Out</th>
+            <th>First Punch In</th>
+            <th>Last Punch Out</th>
+            <th>Punch Times</th>
             <th>Worked Hours</th>
             <th>Expected Hours</th>
             <th>Balance</th>
@@ -135,8 +140,9 @@ $totalBalance = 0;
 
             <tr>
                 <td><?= htmlspecialchars($row["work_date"]) ?></td>
-                <td><?= htmlspecialchars($row["in_time"]) ?></td>
-                <td><?= htmlspecialchars($row["out_time"]) ?></td>
+                <td><?= htmlspecialchars($row["first_punch_in"]) ?></td>
+                <td><?= htmlspecialchars($row["last_punch_out"]) ?></td>
+                <td><?= $row["punch_times"] ?></td>
                 <td><?= number_format($worked, 2) ?></td>
                 <td><?= number_format($targetHoursPerDay, 2) ?></td>
                 <td class="<?= $balanceClass ?>">
@@ -149,6 +155,7 @@ $totalBalance = 0;
 
 <div class="summary">
     <p><strong>Total worked:</strong> <?= number_format($totalWorked, 2) ?> hours</p>
+
     <p>
         <strong>Total balance:</strong>
         <span class="<?= $totalBalance >= 0 ? "plus" : "minus" ?>">
